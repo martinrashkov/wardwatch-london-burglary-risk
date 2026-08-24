@@ -7,7 +7,7 @@ WardWatch is an interactive predictive modelling dashboard that forecasts househ
 
 ## Overview
 
-WardWatch forecasts household burglary risk for every Lower Layer Super Output Area (LSOA) in London and turns those forecasts into monthly patrol allocation plans. It is built entirely on open source data and gives a police management audience an interactive map of relative risk alongside the economic and demographic context relevant to resource allocation. The accompanying technical report includes an ALGOCARE ethical review of the design covering advisory role, granularity, ownership, accuracy and explainability.
+WardWatch forecasts household burglary risk for every Lower Layer Super Output Area (LSOA) in London and turns those forecasts into monthly patrol allocation plans. It is built entirely on open source data and gives a police management audience an interactive map of relative risk alongside the economic and demographic context relevant to resource allocation. An ALGOCARE-based ethical review of the design, covering advisory role, granularity, ownership, accuracy and explainability, is included below along with the model's performance results.
 
 This was built as a course project for TU Eindhoven course, addressing real world crime and security problems with data science.
 
@@ -22,6 +22,32 @@ This was built as a course project for TU Eindhoven course, addressing real worl
 ## Features
 
 The dashboard displays an interactive map of London that drills down from borough level to ward level to LSOA level, colouring LSOAs by relative burglary risk. Selecting an LSOA opens a resource panel that shows its historical and predicted burglary count together with the risk score and the suggested weekly patrol hours. A search box allows jumping directly to a named borough, ward or LSOA, and a reset control returns the map to its default view. An information popup explains how the risk score and hour allocation are calculated. The allocation itself splits each ward's 800 weekly patrol hours so that 60 percent (480 hours) is shared equally across all LSOAs in the ward as baseline coverage, and the remaining 40 percent (320 hours) is distributed in proportion to each LSOA's relative risk score, with the result rounded to two hour patrol shifts.
+
+## Results
+
+The XGBoost model was benchmarked against a per-LSOA linear regression baseline and an LSTM model that used hand-engineered spatial features (neighbouring LSOA counts and average neighbour crime).
+
+| Model             | MAE  | RMSE |
+|-------------------|------|------|
+| XGBoost           | 0.29 | 0.64 |
+| LSTM              | 0.78 | 1.05 |
+| Linear Regression | 0.90 | 1.25 |
+
+XGBoost cuts error roughly in half compared to the next-best model. On average its monthly burglary-count prediction is off by under 0.3, though the larger RMSE relative to the MAE indicates a small number of outlier LSOAs where the model under-predicts by several burglaries. This happens almost exclusively in the small subset of high-crime LSOAs, while the majority (burglary counts of 0 to 3, around 97% of the data) are predicted with high accuracy.
+
+Feature importance was assessed with three complementary methods: gain, permutation importance, and SHAP. This was done to avoid relying on a single, potentially misleading metric. Across all three, recency of the last burglary and the 3-month rolling average of crime were consistently the strongest predictors, followed by 1-month lag count, neighbouring LSOA crime context, and socioeconomic indicators such as education and environment scores.
+
+## Ethical Considerations
+
+The design was evaluated against the [ALGOCARE](https://algorithmwatch.org) framework for algorithmic decision-making in policing, focusing on five criteria:
+
+- **Advisory:** The tool is advisory only. It surfaces a risk score and a suggested hour allocation, but a human officer always retains control over final deployment decisions, with local knowledge from officers on the ground expected to complement, not be replaced by, the model's output.
+- **Granularity:** Predictions are made at LSOA level, the finest geography for which both crime and socioeconomic data are reliably available. This improves model precision but raises privacy considerations; the trade-off was judged acceptable since the underlying LSOA crime data is anonymised.
+- **Ownership:** The model and underlying data are built entirely from open-source sources (ONS, Census, police.uk), with no external licensing or access restrictions that could limit the police force's ability to audit, amend, or evaluate the tool.
+- **Accuracy:** False positives (over-policing low-risk areas) and false negatives (under-policing high-risk areas) are acknowledged as unavoidable. The 60/40 baseline-to-risk-based hour split is designed to bound this risk. All areas retain a minimum coverage floor regardless of model error.
+- **Explainable:** XGBoost was chosen partly for its interpretability. Feature importance (gain, permutation, SHAP) is exposed to let a force's data science staff explain and justify individual predictions and monitor for emerging bias in the model over time.
+
+Sensitive attributes such as ethnicity were deliberately excluded from the feature set to reduce the risk of biased or discriminatory outcomes.
 
 ## Data Source
 
@@ -49,4 +75,4 @@ The underlying crime data is monthly, which limits predictions to monthly resolu
 
 ## License
 
-The code in this repository is released under the MIT License, included in the `LICENSE` file. This license covers the code only. The underlying datasets described above are separately licensed under the Open Government Licence and the Ordnance Survey OpenData Licence and are not redistributed in this repository.
+The code in this repository is released under the [MIT License](LICENSE). This license covers the code only. The underlying datasets described above are separately licensed under the Open Government Licence and the Ordnance Survey OpenData Licence and are not redistributed in this repository.
