@@ -1,0 +1,101 @@
+# build_london_map.py
+# ---------------------------------------------------------------------
+# Requires: geopandas, folium, shapely, fiona, pyproj
+# Install with:  pip install geopandas folium
+# ---------------------------------------------------------------------
+from pathlib import Path
+import tempfile, zipfile, shutil
+import geopandas as gpd
+import folium
+from folium import plugins
+
+BASE = Path(__file__).parent                     # folder where this script sits
+
+# ---------------------------------------------------------------------
+# 1. Wards – unzip once to a temp folder, then read the .shp
+# ---------------------------------------------------------------------
+zip_path = BASE / "London-wards-2018.zip"        # make sure the ZIP is here!
+assert zip_path.exists(), f"{zip_path} not found"
+
+tmpdir = Path(tempfile.mkdtemp())                # OS temp dir
+with zipfile.ZipFile(zip_path) as z:
+    z.extractall(tmpdir)
+
+shp_path = next(tmpdir.rglob("*.shp"))           # first .shp inside the unzip
+wards = gpd.read_file(shp_path).to_crs(4326)     # re‑project to lat/lon
+
+
+
+ward_name_field = "NAME"
+
+# ---------------------------------------------------------------------
+# 2. LSOAs – plain GeoJSON
+# ---------------------------------------------------------------------
+lsoa_path = BASE / "LSOA_London_2021.geojson"    # adjust if name differs
+lsoa = (
+    gpd.read_file(lsoa_path)
+       .to_crs(4326)
+                        # comment out to keep full detail
+)
+print("‣ LSOA object type :", type(lsoa))
+print("‣ LSOA columns     :", getattr(lsoa, "columns", "‑ no columns attribute ‑"))
+print("‣ First 2 rows\n", lsoa.head(2) if hasattr(lsoa, "head") else lsoa)
+
+
+lsoa_name_field = "LSOA21CD"
+
+# ---------------------------------------------------------------------
+# 3. Build the interactive map
+# ---------------------------------------------------------------------
+m = folium.Map(
+    location=[51.5074, -0.1278],                 # London centre
+    tiles="cartodbpositron",
+    zoom_start=10,
+    control_scale=True
+)
+
+# --- Ward layer -------------------------------------------------------
+folium.GeoJson(
+    wards,
+    name="Wards (2018)",
+    style_function=lambda f: dict(
+        weight=0.8, color="#4c78a8",
+        fillColor="#4c78a8", fillOpacity=0.25),
+    highlight_function=lambda f: dict(weight=2, color="#000"),
+    tooltip=folium.GeoJsonTooltip(
+        fields=[ward_name_field],
+        aliases=["Ward:"],
+        sticky=False
+    )
+).add_to(m)
+
+# --- LSOA layer (off by default) --------------------------------------
+folium.GeoJson(
+    lsoa,
+    name="LSOAs (2021)",
+    style_function=lambda f: dict(
+        weight=0.4, color="#c41818",
+        fillColor="#c41818", fillOpacity=0.15),
+    highlight_function=lambda f: dict(weight=1, color="#000"),
+    tooltip=folium.GeoJsonTooltip(
+        fields=[lsoa_name_field],
+        aliases=["LSOA:"],
+        sticky=False
+    ),
+    show=False
+).add_to(m)
+
+plugins.Fullscreen().add_to(m)
+folium.LayerControl(collapsed=False).add_to(m)
+
+# ---------------------------------------------------------------------
+# 4. Write the static website
+# ---------------------------------------------------------------------
+out_file = BASE / "index.html"
+m.save(out_file)
+print(f"✓ Interactive map written to {out_file.resolve()}")
+
+# ---------------------------------------------------------------------
+# 5. Clean up the temp folder
+# ---------------------------------------------------------------------
+shutil.rmtree(tmpdir, ignore_errors=True)
