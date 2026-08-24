@@ -47,10 +47,6 @@ Clone the repository and create a virtual Python environment. Install the Python
 
 The underlying crime data is monthly, which limits predictions to monthly resolution rather than the daily or hourly resolution that would better suit operational patrol planning. The dashboard currently reads from a static, precomputed prediction file rather than an API or live database, so new monthly predictions have to be generated and copied into place manually rather than fetched on demand. The tool does not currently generate recommendations for special operations such as localized surges or specific events, since that would require data at a finer granularity than is currently available. Sensitive features such as ethnicity were deliberately excluded from the model to reduce the risk of biased decision making.
 
-## Acknowledgments
-
-Thanks to the staff of 4CBLW00-20 at TU Eindhoven, and to the Home Office through police.uk, the Office for National Statistics, and the London Datastore for the open data that made this project possible.
-
 ## License
 
 The code in this repository is released under the MIT License, included in the `LICENSE` file. This license covers the code only. The underlying datasets described above are separately licensed under the Open Government Licence and the Ordnance Survey OpenData Licence and are not redistributed in this repository.
